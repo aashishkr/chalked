@@ -4,6 +4,8 @@ A native macOS desktop app for [Excalidraw](https://excalidraw.com/) — multi-t
 
 ![Chalked](src-tauri/chalked-icon.svg)
 
+> [GitHub](https://github.com/aashishkr/chalked) · [Report an issue](https://github.com/aashishkr/chalked/issues)
+
 ## Features
 
 - **Multi-tab** — open multiple drawings simultaneously, switch between them instantly

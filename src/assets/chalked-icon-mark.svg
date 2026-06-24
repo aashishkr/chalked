@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="roughen2" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="glow2">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="110" ry="110" fill="#1A1D2E"/>
+
+  <!-- Grid -->
+  <g opacity="0.06" stroke="#F0EEE6" stroke-width="1">
+    <line x1="0" y1="64" x2="512" y2="64"/>
+    <line x1="0" y1="128" x2="512" y2="128"/>
+    <line x1="0" y1="192" x2="512" y2="192"/>
+    <line x1="0" y1="256" x2="512" y2="256"/>
+    <line x1="0" y1="320" x2="512" y2="320"/>
+    <line x1="0" y1="384" x2="512" y2="384"/>
+    <line x1="0" y1="448" x2="512" y2="448"/>
+    <line x1="64" y1="0" x2="64" y2="512"/>
+    <line x1="128" y1="0" x2="128" y2="512"/>
+    <line x1="192" y1="0" x2="192" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="512"/>
+    <line x1="320" y1="0" x2="320" y2="512"/>
+    <line x1="384" y1="0" x2="384" y2="512"/>
+    <line x1="448" y1="0" x2="448" y2="512"/>
+  </g>
+
+  <!-- Glow backdrop -->
+  <ellipse cx="256" cy="256" rx="160" ry="95" fill="#FF5F6D" opacity="0.10" filter="url(#glow2)"/>
+
+  <!-- Left lobe of infinity -->
+  <path d="
+    M 256 256
+    C 242 222, 206 186, 168 186
+    C 126 186, 96 218, 96 256
+    C 96 294, 126 326, 168 326
+    C 206 326, 240 292, 256 256
+  "
+    fill="none"
+    stroke="#F0EEE6"
+    stroke-width="26"
+    stroke-linecap="round"
+    filter="url(#roughen2)"
+    opacity="0.95"
+  />
+
+  <!-- Right lobe of infinity -->
+  <path d="
+    M 256 256
+    C 270 222, 306 186, 344 186
+    C 386 186, 416 218, 416 256
+    C 416 294, 386 326, 344 326
+    C 306 326, 272 292, 256 256
+  "
+    fill="none"
+    stroke="#F0EEE6"
+    stroke-width="26"
+    stroke-linecap="round"
+    filter="url(#roughen2)"
+    opacity="0.95"
+  />
+
+  <!-- Coral trailing accent -->
+  <path d="M 256 256 C 270 234, 292 214, 314 204"
+    fill="none" stroke="#FF5F6D" stroke-width="13"
+    stroke-linecap="round" opacity="0.9" filter="url(#roughen2)"/>
+
+  <!-- Blue trailing accent -->
+  <path d="M 256 256 C 242 278, 220 298, 198 308"
+    fill="none" stroke="#7EC8E3" stroke-width="13"
+    stroke-linecap="round" opacity="0.85" filter="url(#roughen2)"/>
+
+  <!-- Center dot -->
+  <circle cx="256" cy="256" r="12" fill="#F0EEE6" opacity="0.92" filter="url(#roughen2)"/>
+
+  <!-- Small chalk dust specks -->
+  <circle cx="420" cy="200" r="3" fill="#F0EEE6" opacity="0.3"/>
+  <circle cx="428" cy="214" r="2" fill="#F0EEE6" opacity="0.2"/>
+  <circle cx="90" cy="300" r="3" fill="#7EC8E3" opacity="0.3"/>
+  <circle cx="82" cy="288" r="2" fill="#7EC8E3" opacity="0.2"/>
+</svg>

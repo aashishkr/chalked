@@ -147,6 +147,6 @@ export function installGlobalErrorHandlers() {
     // Avoid infinite loop from logger itself calling console.error
     if (typeof args[0] === "string" && args[0].startsWith("[Logger]")) return;
     if (typeof args[0] === "string" && args[0].startsWith("[ERROR]")) return;
-    logger._push("error", args.map(String).join(" "));
+    (logger as unknown as { _push: (level: string, msg: string) => void })._push("error", args.map(String).join(" "));
   };
 }

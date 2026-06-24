@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="roughen" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="chalk-texture">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" seed="5" result="noise"/>
+      <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
+      <feBlend in="SourceGraphic" in2="grayNoise" mode="multiply" result="blend"/>
+      <feComposite in="blend" in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <!-- Rounded square clip -->
+    <clipPath id="roundedSquare">
+      <rect width="512" height="512" rx="110" ry="110"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background: deep slate -->
+  <rect width="512" height="512" rx="110" ry="110" fill="#1A1D2E"/>
+
+  <!-- Subtle grid lines like a whiteboard -->
+  <g opacity="0.06" stroke="#F0EEE6" stroke-width="1">
+    <line x1="0" y1="64" x2="512" y2="64"/>
+    <line x1="0" y1="128" x2="512" y2="128"/>
+    <line x1="0" y1="192" x2="512" y2="192"/>
+    <line x1="0" y1="256" x2="512" y2="256"/>
+    <line x1="0" y1="320" x2="512" y2="320"/>
+    <line x1="0" y1="384" x2="512" y2="384"/>
+    <line x1="0" y1="448" x2="512" y2="448"/>
+    <line x1="64" y1="0" x2="64" y2="512"/>
+    <line x1="128" y1="0" x2="128" y2="512"/>
+    <line x1="192" y1="0" x2="192" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="512"/>
+    <line x1="320" y1="0" x2="320" y2="512"/>
+    <line x1="384" y1="0" x2="384" y2="512"/>
+    <line x1="448" y1="0" x2="448" y2="512"/>
+  </g>
+
+  <!-- Coral glow backdrop for infinity -->
+  <ellipse cx="256" cy="230" rx="155" ry="90" fill="#FF5F6D" opacity="0.08" filter="url(#glow)"/>
+
+  <!-- Hand-drawn infinity loop - main chalk stroke -->
+  <!-- Left lobe -->
+  <path d="
+    M 256 230
+    C 242 200, 210 168, 176 168
+    C 138 168, 112 196, 112 230
+    C 112 264, 138 292, 176 292
+    C 210 292, 240 262, 256 230
+  "
+    fill="none"
+    stroke="#F0EEE6"
+    stroke-width="22"
+    stroke-linecap="round"
+    filter="url(#roughen)"
+    opacity="0.95"
+  />
+
+  <!-- Right lobe -->
+  <path d="
+    M 256 230
+    C 270 200, 302 168, 336 168
+    C 374 168, 400 196, 400 230
+    C 400 264, 374 292, 336 292
+    C 302 292, 272 262, 256 230
+  "
+    fill="none"
+    stroke="#F0EEE6"
+    stroke-width="22"
+    stroke-linecap="round"
+    filter="url(#roughen)"
+    opacity="0.95"
+  />
+
+  <!-- Coral accent: a small trailing stroke, like a fresh chalk mark -->
+  <path d="
+    M 256 230
+    C 266 213, 284 198, 302 190
+  "
+    fill="none"
+    stroke="#FF5F6D"
+    stroke-width="10"
+    stroke-linecap="round"
+    opacity="0.9"
+    filter="url(#roughen)"
+  />
+
+  <!-- Sky blue accent: another trailing mark -->
+  <path d="
+    M 256 230
+    C 246 247, 228 262, 210 270
+  "
+    fill="none"
+    stroke="#7EC8E3"
+    stroke-width="10"
+    stroke-linecap="round"
+    opacity="0.85"
+    filter="url(#roughen)"
+  />
+
+  <!-- Chalk dot at center crossover point -->
+  <circle cx="256" cy="230" r="9" fill="#F0EEE6" opacity="0.9" filter="url(#roughen)"/>
+
+  <!-- "chalked" wordmark -->
+  <text
+    x="256"
+    y="374"
+    text-anchor="middle"
+    font-family="'Georgia', 'Times New Roman', serif"
+    font-size="52"
+    font-weight="700"
+    letter-spacing="6"
+    fill="#F0EEE6"
+    opacity="0.92"
+    filter="url(#roughen)"
+  >chalked</text>
+
+  <!-- Coral underline accent below wordmark -->
+  <line x1="156" y1="386" x2="356" y2="386" stroke="#FF5F6D" stroke-width="3" stroke-linecap="round" opacity="0.7" filter="url(#roughen)"/>
+
+  <!-- Sky blue dot above the "i" (decorative, above the "l" area) -->
+  <circle cx="378" cy="350" r="5" fill="#7EC8E3" opacity="0.6"/>
+
+</svg>

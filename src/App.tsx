@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import DrawingTab, { TabActions } from "./DrawingTab";
+import WelcomeTab, { RecentFile } from "./WelcomeTab";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { appDataDir } from "@tauri-apps/api/path";
 import { writeTextFile, readTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
+import { open as openFilePicker } from "@tauri-apps/plugin-dialog";
 import { logger } from "./logger";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -10,9 +12,10 @@ import { logger } from "./logger";
 interface Tab {
   id: string;
   title: string;
-  filePath?: string;  // undefined = unsaved
-  tempPath?: string;  // auto-save path for unsaved tabs
+  filePath?: string;   // undefined = unsaved
+  tempPath?: string;   // auto-save path for unsaved tabs
   isDirty: boolean;
+  type: "welcome" | "drawing";
 }
 
 interface SessionTab {
@@ -27,14 +30,24 @@ let _seq = 0;
 function uid() { return `tab-${Date.now()}-${++_seq}`; }
 
 function newTab(opts: Partial<Tab> = {}): Tab {
+  const type = opts.type ?? "drawing";
   return {
     id: opts.id ?? uid(),
-    title: opts.title ?? (opts.filePath ? opts.filePath.split("/").pop()! : "Untitled"),
+    title: opts.title ?? (type === "welcome" ? "Welcome" : (opts.filePath ? opts.filePath.split("/").pop()! : "Untitled")),
     filePath: opts.filePath,
     tempPath: opts.tempPath,
     isDirty: false,
+    type,
     ...opts,
   };
+}
+
+const MAX_RECENTS = 12;
+
+function addToRecents(prev: RecentFile[], filePath: string, title: string): RecentFile[] {
+  const entry: RecentFile = { path: filePath, title, openedAt: Date.now() };
+  const filtered = prev.filter((r) => r.path !== filePath);
+  return [entry, ...filtered].slice(0, MAX_RECENTS);
 }
 
 // ─── Unsaved Changes Modal ────────────────────────────────────────────────────
@@ -50,7 +63,6 @@ function UnsavedDialog({
   onDiscard: () => void;
   onCancel: () => void;
 }) {
-  // Trap keyboard so Escape = cancel, Enter = save
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCancel();
@@ -86,7 +98,8 @@ function UnsavedDialog({
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [tabs, setTabs] = useState<Tab[]>([newTab()]);
+  // Start with the welcome tab; session restore may replace it with drawing tabs
+  const [tabs, setTabs] = useState<Tab[]>([newTab({ type: "welcome" })]);
   const [activeId, setActiveId] = useState<string>(tabs[0].id);
   const [dialog, setDialog] = useState<null | {
     title: string;
@@ -96,22 +109,20 @@ export default function App() {
   }>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
 
-  // Stable refs so callbacks always see current values
   const tabsRef = useRef<Tab[]>(tabs);
   tabsRef.current = tabs;
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
 
-  // appDataDir resolved once on mount (e.g. ~/Library/Application Support/com.excalidraw.desktop)
   const appDirRef = useRef("");
-
-  // DrawingTab registers its save fn here so App can call it on window close
   const saveCallbacks = useRef<Map<string, () => Promise<void>>>(new Map());
-  // Per-tab action handlers — keyed by tab id, updated by each DrawingTab on mount
   const tabActionsRef = useRef<Map<string, TabActions>>(new Map());
+  const recentFilesRef = useRef<RecentFile[]>(recentFiles);
+  recentFilesRef.current = recentFiles;
 
-  // ── Init: resolve app dir + restore session ────────────────────────────────
+  // ── Init: resolve app dir + restore session + load recents ────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -119,20 +130,30 @@ export default function App() {
         const tempDir = dir + "/temp";
         appDirRef.current = dir;
 
-        // Init logger first so any subsequent errors are captured
         logger.init(dir);
         logger.info("App started", { appDataDir: dir });
 
         if (!(await exists(dir))) await mkdir(dir, { recursive: true });
         if (!(await exists(tempDir))) await mkdir(tempDir, { recursive: true });
 
+        // Load recents
+        const recentsPath = dir + "/recents.json";
+        if (await exists(recentsPath)) {
+          try {
+            const raw = await readTextFile(recentsPath);
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) setRecentFiles(parsed);
+          } catch { /* ignore malformed recents */ }
+        }
+
+        // Restore session — if session exists, replace the welcome tab with real tabs
         const sessionPath = dir + "/session.json";
         if (await exists(sessionPath)) {
           const raw = await readTextFile(sessionPath);
           const saved: SessionTab[] = JSON.parse(raw);
           if (Array.isArray(saved) && saved.length > 0) {
             const restored = saved.map((s) =>
-              newTab({ title: s.title, filePath: s.filePath, tempPath: s.tempPath })
+              newTab({ title: s.title, filePath: s.filePath, tempPath: s.tempPath, type: "drawing" })
             );
             setTabs(restored);
             setActiveId(restored[0].id);
@@ -145,16 +166,14 @@ export default function App() {
     })();
   }, []);
 
-  // ── Persist session whenever tabs change (debounced 800 ms) ───────────────
+  // ── Persist session (only drawing tabs) whenever tabs change ─────────────
   useEffect(() => {
     if (!appDirRef.current) return;
     const timer = setTimeout(async () => {
       try {
-        const data: SessionTab[] = tabsRef.current.map((t) => ({
-          title: t.title,
-          filePath: t.filePath,
-          tempPath: t.tempPath,
-        }));
+        const data: SessionTab[] = tabsRef.current
+          .filter((t) => t.type === "drawing")
+          .map((t) => ({ title: t.title, filePath: t.filePath, tempPath: t.tempPath }));
         await writeTextFile(appDirRef.current + "/session.json", JSON.stringify(data));
       } catch (e) {
         logger.error("Session write failed", e);
@@ -163,7 +182,23 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [tabs]);
 
-  // ── Unsaved-changes prompt ─────────────────────────────────────────────────
+  // ── Persist recents whenever they change ──────────────────────────────────
+  useEffect(() => {
+    if (!appDirRef.current || recentFiles.length === 0) return;
+    const timer = setTimeout(async () => {
+      try {
+        await writeTextFile(
+          appDirRef.current + "/recents.json",
+          JSON.stringify(recentFiles)
+        );
+      } catch (e) {
+        logger.error("Recents write failed", e);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [recentFiles]);
+
+  // ── Unsaved-changes prompt ────────────────────────────────────────────────
   function askUnsaved(tabTitle: string): Promise<"save" | "discard" | "cancel"> {
     return new Promise((resolve) => {
       setDialog({
@@ -175,7 +210,7 @@ export default function App() {
     });
   }
 
-  // ── Window close: check all dirty tabs ────────────────────────────────────
+  // ── Window close: check all dirty tabs ───────────────────────────────────
   useEffect(() => {
     const win = getCurrentWindow();
     let unlisten: (() => void) | undefined;
@@ -186,7 +221,7 @@ export default function App() {
         if (closing) return;
         event.preventDefault();
 
-        const dirty = tabsRef.current.filter((t) => t.isDirty);
+        const dirty = tabsRef.current.filter((t) => t.type === "drawing" && t.isDirty);
         for (const tab of dirty) {
           const r = await askUnsaved(tab.title);
           if (r === "cancel") return;
@@ -194,8 +229,6 @@ export default function App() {
         }
 
         closing = true;
-        // close() re-fires onCloseRequested; the `closing` guard above returns
-        // without calling preventDefault(), so the window closes normally.
         await win.close();
       })
       .then((fn) => { unlisten = fn; });
@@ -203,10 +236,10 @@ export default function App() {
     return () => unlisten?.();
   }, []);
 
-  // ── Tab management ─────────────────────────────────────────────────────────
+  // ── Tab management ────────────────────────────────────────────────────────
   const addTab = useCallback(
     (opts: Partial<Tab> = {}) => {
-      const tab = newTab(opts);
+      const tab = newTab({ ...opts, type: opts.type ?? "drawing" });
       setTabs((prev) => [...prev, tab]);
       setActiveId(tab.id);
       return tab.id;
@@ -218,17 +251,18 @@ export default function App() {
     const tab = tabsRef.current.find((t) => t.id === id);
     if (!tab) return;
 
-    if (tab.isDirty) {
+    if (tab.type === "drawing" && tab.isDirty) {
       const r = await askUnsaved(tab.title);
       if (r === "cancel") return;
       if (r === "save") await saveCallbacks.current.get(id)?.();
     }
 
     saveCallbacks.current.delete(id);
+    tabActionsRef.current.delete(id);
     setTabs((prev) => {
       const next = prev.filter((t) => t.id !== id);
       if (!next.length) {
-        const fresh = newTab();
+        const fresh = newTab({ type: "drawing" });
         setActiveId(fresh.id);
         return [fresh];
       }
@@ -241,7 +275,7 @@ export default function App() {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   }, []);
 
-  // ── Inline rename ──────────────────────────────────────────────────────────
+  // ── Inline rename ─────────────────────────────────────────────────────────
   const startRename = (id: string, current: string) => {
     setRenamingId(id);
     setRenameVal(current);
@@ -252,9 +286,34 @@ export default function App() {
     setRenamingId(null);
   };
 
-  // ── Stable per-tab callbacks (keyed by tab ID) ───────────────────────────
-  // Memoised so DrawingTab wrapped in React.memo doesn't re-render when
-  // a different tab's title/dirty state changes.
+  // ── Welcome tab actions ───────────────────────────────────────────────────
+
+  const handleWelcomeNewDrawing = useCallback(() => {
+    addTab({ type: "drawing" });
+  }, [addTab]);
+
+  const handleWelcomeOpenFile = useCallback(async () => {
+    const selected = await openFilePicker({
+      title: "Open Drawing",
+      multiple: false,
+      filters: [{ name: "Excalidraw", extensions: ["excalidraw"] }],
+    });
+    if (!selected || Array.isArray(selected)) return;
+    const path = selected as string;
+    const title = path.split("/").pop()!;
+    addTab({ filePath: path, title, type: "drawing" });
+    setRecentFiles((prev) => addToRecents(prev, path, title));
+  }, [addTab]);
+
+  const handleWelcomeOpenRecent = useCallback(
+    (path: string, title: string) => {
+      addTab({ filePath: path, title, type: "drawing" });
+      setRecentFiles((prev) => addToRecents(prev, path, title));
+    },
+    [addTab]
+  );
+
+  // ── Stable per-tab callbacks ──────────────────────────────────────────────
   const tabCallbacks = useMemo(() => {
     const map: Record<string, {
       onDirtyChange: (d: boolean) => void;
@@ -268,7 +327,10 @@ export default function App() {
       const id = tab.id;
       map[id] = {
         onDirtyChange: (d) => patchTab(id, { isDirty: d }),
-        onSaved: (title, fp) => patchTab(id, { title, filePath: fp, isDirty: false }),
+        onSaved: (title, fp) => {
+          patchTab(id, { title, filePath: fp, isDirty: false });
+          if (fp) setRecentFiles((prev) => addToRecents(prev, fp, title));
+        },
         onTempPath: (tp) => patchTab(id, { tempPath: tp }),
         onOpenNewTab: (fp, title, tp) => addTab({ filePath: fp, title, tempPath: tp }),
         onRegisterSave: (fn) => saveCallbacks.current.set(id, fn),
@@ -276,11 +338,14 @@ export default function App() {
       };
     }
     return map;
-  // Rebuild only when the set of tab IDs changes (not on every dirty/title change)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.map((t) => t.id).join(","), patchTab, addTab]);
 
-  // ─── Render ──────────────────────────────────────────────────────────────
+  // ── Derived state ─────────────────────────────────────────────────────────
+  const activeTab = tabs.find((t) => t.id === activeId);
+  const isWelcomeActive = activeTab?.type === "welcome";
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -293,10 +358,12 @@ export default function App() {
           {tabs.map((tab) => (
             <div
               key={tab.id}
-              className={`tab ${tab.id === activeId ? "active" : ""}`}
+              className={`tab ${tab.id === activeId ? "active" : ""}${tab.type === "welcome" ? " tab-welcome" : ""}`}
               onClick={() => setActiveId(tab.id)}
               title={
-                tab.filePath
+                tab.type === "welcome"
+                  ? "Welcome"
+                  : tab.filePath
                   ? `${tab.filePath}${tab.isDirty ? " (unsaved)" : ""}`
                   : tab.title
               }
@@ -318,12 +385,13 @@ export default function App() {
                 <span
                   className="tab-title"
                   onDoubleClick={(e) => {
+                    if (tab.type === "welcome") return;
                     e.stopPropagation();
                     startRename(tab.id, tab.title);
                   }}
-                  title="Double-click to rename"
+                  title={tab.type !== "welcome" ? "Double-click to rename" : undefined}
                 >
-                  {tab.isDirty ? `• ${tab.title}` : tab.title}
+                  {tab.type === "welcome" ? "🏠 Welcome" : tab.isDirty ? `• ${tab.title}` : tab.title}
                 </span>
               )}
               <button
@@ -343,48 +411,50 @@ export default function App() {
         </div>
       </div>
 
-      {/* Toolbar — sits between tab bar and canvas, never overlaps Excalidraw UI */}
-      <div className="toolbar">
-        <button
-          className="toolbar-btn"
-          onClick={() => tabActionsRef.current.get(activeId)?.save()}
-          title="Save (⌘S)"
-        >
-          Save
-        </button>
-        <button
-          className="toolbar-btn"
-          onClick={() => tabActionsRef.current.get(activeId)?.saveAs()}
-          title="Save As (⌘⇧S)"
-        >
-          Save As
-        </button>
-        <div className="toolbar-sep" />
-        <button
-          className="toolbar-btn"
-          onClick={() => tabActionsRef.current.get(activeId)?.open()}
-          title="Open (⌘O)"
-        >
-          Open
-        </button>
-        <button
-          className="toolbar-btn"
-          onClick={() => tabActionsRef.current.get(activeId)?.openInNewTab()}
-          title="Open in new tab (⌘⇧O)"
-        >
-          Open in New Tab
-        </button>
-        <div className="toolbar-sep" />
-        <button
-          className="toolbar-btn"
-          onClick={() => tabActionsRef.current.get(activeId)?.openInWeb()}
-          title="Copy to excalidraw.com"
-        >
-          Open in Web ↗
-        </button>
-      </div>
+      {/* Toolbar — hidden when welcome tab is active */}
+      {!isWelcomeActive && (
+        <div className="toolbar">
+          <button
+            className="toolbar-btn"
+            onClick={() => tabActionsRef.current.get(activeId)?.save()}
+            title="Save (⌘S)"
+          >
+            Save
+          </button>
+          <button
+            className="toolbar-btn"
+            onClick={() => tabActionsRef.current.get(activeId)?.saveAs()}
+            title="Save As (⌘⇧S)"
+          >
+            Save As
+          </button>
+          <div className="toolbar-sep" />
+          <button
+            className="toolbar-btn"
+            onClick={() => tabActionsRef.current.get(activeId)?.open()}
+            title="Open (⌘O)"
+          >
+            Open
+          </button>
+          <button
+            className="toolbar-btn"
+            onClick={() => tabActionsRef.current.get(activeId)?.openInNewTab()}
+            title="Open in new tab (⌘⇧O)"
+          >
+            Open in New Tab
+          </button>
+          <div className="toolbar-sep" />
+          <button
+            className="toolbar-btn"
+            onClick={() => tabActionsRef.current.get(activeId)?.openInWeb()}
+            title="Copy to excalidraw.com"
+          >
+            Open in Web ↗
+          </button>
+        </div>
+      )}
 
-      {/* Drawing panes — all mounted, only active one visible */}
+      {/* Tab panes — all mounted, only active visible */}
       <div style={{ flex: 1, position: "relative" }}>
         {tabs.map((tab) => (
           <div
@@ -395,14 +465,23 @@ export default function App() {
               display: tab.id === activeId ? "block" : "none",
             }}
           >
-            <DrawingTab
-              tabId={tab.id}
-              filePath={tab.filePath}
-              tempPath={tab.tempPath}
-              isActive={tab.id === activeId}
-              appDataDir={appDirRef.current}
-              {...(tabCallbacks[tab.id] ?? {})}
-            />
+            {tab.type === "welcome" ? (
+              <WelcomeTab
+                recentFiles={recentFiles}
+                onNewDrawing={handleWelcomeNewDrawing}
+                onOpenFile={handleWelcomeOpenFile}
+                onOpenRecent={handleWelcomeOpenRecent}
+              />
+            ) : (
+              <DrawingTab
+                tabId={tab.id}
+                filePath={tab.filePath}
+                tempPath={tab.tempPath}
+                isActive={tab.id === activeId}
+                appDataDir={appDirRef.current}
+                {...(tabCallbacks[tab.id] ?? {})}
+              />
+            )}
           </div>
         ))}
       </div>
