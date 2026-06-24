@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chalked</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Catch module/JS errors that happen before React mounts and surface them visibly -->
+    <script>
+      window.addEventListener('error', function(e) {
+        if (document.getElementById('root').childElementCount === 0) {
+          document.body.innerHTML =
+            '<pre style="padding:20px;font-size:12px;color:#c00;white-space:pre-wrap;word-break:break-all">' +
+            'JS Error (React did not mount):\n\n' +
+            (e.message || '') + '\n' +
+            'File: ' + (e.filename || '') + ':' + (e.lineno || '') + '\n\n' +
+            (e.error && e.error.stack ? e.error.stack : '') +
+            '</pre>';
+        }
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        if (document.getElementById('root').childElementCount === 0) {
+          document.body.innerHTML =
+            '<pre style="padding:20px;font-size:12px;color:#c00;white-space:pre-wrap;word-break:break-all">' +
+            'Unhandled Promise Rejection (React did not mount):\n\n' +
+            (e.reason && e.reason.stack ? e.reason.stack : String(e.reason)) +
+            '</pre>';
+        }
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,256 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Tab bar */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+  height: 36px;
+  padding: 0 4px;
+  -webkit-app-region: drag; /* allows dragging the window from the tab bar */
+  user-select: none;
+  /* Leave space for traffic lights on macOS */
+  padding-left: 80px;
+}
+
+.tab-bar-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+}
+
+.tab-bar-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: #555;
+  white-space: nowrap;
+  max-width: 200px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  transition: background 0.1s;
+  flex-shrink: 0;
+}
+
+.tab:hover {
+  background: #eaeaea;
+}
+
+.tab.active {
+  background: #fff;
+  color: #111;
+  border-color: #ddd;
+  border-bottom-color: #fff;
+  margin-bottom: -1px;
+  z-index: 1;
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: #999;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.tab-close:hover {
+  background: #ddd;
+  color: #333;
+}
+
+.tab-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  margin-left: 4px;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.tab-new:hover {
+  background: #e0e0e0;
+}
+
+/* Toolbar strip — between tab bar and canvas */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+  height: 36px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.toolbar-btn {
+  padding: 4px 12px;
+  border-radius: 5px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, border-color 0.1s;
+  line-height: 1.4;
+}
+
+.toolbar-btn:hover {
+  background: #f0f0f0;
+  border-color: #bbb;
+}
+
+.toolbar-btn:active {
+  background: #e4e4e4;
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: #d8d8d8;
+  margin: 0 4px;
+}
+
+/* Drawing area */
+.drawing-area {
+  height: 100%;
+  position: relative;
+}
+
+.drawing-area .excalidraw {
+  height: 100%;
+}
+
+
+/* Inline tab rename input */
+.tab-rename-input {
+  border: 1px solid #6965db;
+  border-radius: 3px;
+  font-size: 13px;
+  padding: 1px 4px;
+  outline: none;
+  width: 120px;
+  background: #fff;
+  color: #111;
+}
+
+/* Unsaved changes modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px 28px;
+  min-width: 320px;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+}
+
+.modal h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #111;
+}
+
+.modal p {
+  font-size: 13px;
+  color: #444;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.modal-btn:hover { background: #e8e8e8; }
+
+.modal-btn.primary {
+  background: #6965db;
+  color: #fff;
+  border-color: #5a56c9;
+}
+
+.modal-btn.primary:hover { background: #5a56c9; }
+
+.modal-btn.danger {
+  background: #fff;
+  color: #c00;
+  border-color: #e88;
+}
+
+.modal-btn.danger:hover { background: #fff0f0; }

@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Rust / Tauri build artifacts
+src-tauri/target/
+
+# Vite cache
+node_modules/.vite/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs (local only — not for repo)
+*.log
+
+# Tauri generated files (regenerated on build)
+src-tauri/gen/
